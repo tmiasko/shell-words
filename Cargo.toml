@@ -7,14 +7,9 @@ repository = "https://github.com/tmiasko/shell-words"
 description = "Process command line according to parsing rules of UNIX shell"
 readme = "README.md"
 keywords = [
-  "bash",
-  "escape",
-  "posix",
   "quote",
-  "sh",
   "shell",
   "split",
-  "tokens",
   "unix",
   "words",
 ]
