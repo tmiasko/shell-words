@@ -9,7 +9,7 @@ Process command line according to parsing rules of Unix shell.
 Add this to Cargo.toml:
 ```toml
 [dependencies]
-shell-words = "0.1.0"
+shell-words = "1.0.0"
 ```
 
 Add this to your crate:
