@@ -8,6 +8,8 @@
 //!
 //! [posix-shell]: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
 
+#![forbid(unsafe_code)]
+
 use std::borrow::Cow;
 use std::error;
 use std::fmt;
