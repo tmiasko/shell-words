@@ -20,16 +20,11 @@ pub struct ParseError;
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use std::error::Error;
-        write!(f, "{}", self.description())
+        write!(f, "missing closing quote")
     }
 }
 
-impl error::Error for ParseError {
-    fn description(&self) -> &str {
-        "missing closing quote"
-    }
-}
+impl error::Error for ParseError {}
 
 enum State {
     /// Within a delimiter.
