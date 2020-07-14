@@ -3,8 +3,8 @@
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE>
 // or the MIT license <LICENSE-MIT>, at your option.
 //
-//! Process command line according to parsing rules of Unix shell as specified in [Shell Command
-//! Language in POSIX.1-2008][posix-shell].
+//! Process command line according to parsing rules of Unix shell as specified
+//! in [Shell Command Language in POSIX.1-2008][posix-shell].
 //!
 //! [posix-shell]: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
 
@@ -22,7 +22,7 @@ pub struct ParseError;
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "missing closing quote")
+        f.write_str("missing closing quote")
     }
 }
 
@@ -47,19 +47,20 @@ enum State {
     Comment,
 }
 
-/// Splits command line into separate arguments, in much the same way Unix shell would, but without
-/// many of expansion the shell would perform.
+/// Splits command line into separate arguments, in much the same way Unix shell
+/// would, but without many of expansion the shell would perform.
 ///
-/// The split functionality is compatible with behaviour of Unix shell, but with word expansions
-/// limited to quote removal, and without special token recognition rules for operators.
+/// The split functionality is compatible with behaviour of Unix shell, but with
+/// word expansions limited to quote removal, and without special token
+/// recognition rules for operators.
 ///
-/// The result is exactly the same as one obtained from Unix shell as long as those unsupported
-/// features are not present in input: no operators, no variable assignments, no tilde expansion,
-/// no parameter expansion, no command substitution, no arithmetic expansion, no pathname
-/// expansion.
+/// The result is exactly the same as one obtained from Unix shell as long as
+/// those unsupported features are not present in input: no operators, no
+/// variable assignments, no tilde expansion, no parameter expansion, no command
+/// substitution, no arithmetic expansion, no pathname expansion.
 ///
-/// In case those unsupported shell features are present, the syntax that introduce them is
-/// interpreted literally.
+/// In case those unsupported shell features are present, the syntax that
+/// introduce them is interpreted literally.
 ///
 /// # Errors
 ///
@@ -67,16 +68,17 @@ enum State {
 ///
 /// # Compatibility with other implementations
 ///
-/// It should be fully compatible with g_shell_parse_argv from GLib, except that in GLib
-/// it is an error not to have any words after tokenization.
+/// It should be fully compatible with g_shell_parse_argv from GLib, except that
+/// in GLib it is an error not to have any words after tokenization.
 ///
-/// It is also very close to shlex.split available in Python standard library, when used in POSIX
-/// mode with support for comments. Though, shlex implementation diverges from POSIX, and from
-/// implementation contained herein in three aspects. First, it doesn't support line continuations.
-/// Second, inside double quotes, the backslash characters retains its special meaning as an escape
-/// character only when followed by \\ or \", whereas POSIX specifies that it should retain its
-/// special meaning when followed by: $, \`, \", \\, or a newline. Third, it treats carriage return
-/// as one of delimiters.
+/// It is also very close to shlex.split available in Python standard library,
+/// when used in POSIX mode with support for comments. Though, shlex
+/// implementation diverges from POSIX, and from implementation contained herein
+/// in three aspects. First, it doesn't support line continuations.
+/// Second, inside double quotes, the backslash characters retains its special
+/// meaning as an escape character only when followed by \\ or \", whereas POSIX
+/// specifies that it should retain its special meaning when followed by: $, \`,
+/// \", \\, or a newline. Third, it treats carriage return as one of delimiters.
 ///
 /// # Examples
 ///
@@ -256,11 +258,11 @@ fn escape_style(s: &str) -> EscapeStyle {
     }
 }
 
-/// Escapes special characters in a string, so that it will retain its literal meaning when used as
-/// a part of command in Unix shell.
+/// Escapes special characters in a string, so that it will retain its literal
+/// meaning when used as a part of command in Unix shell.
 ///
-/// It tries to avoid introducing any unnecessary quotes or escape characters, but specifics
-/// regarding quoting style are left unspecified.
+/// It tries to avoid introducing any unnecessary quotes or escape characters,
+/// but specifics regarding quoting style are left unspecified.
 pub fn quote(s: &str) -> Cow<str> {
     // We are going somewhat out of the way to provide
     // minimal amount of quoting in typical cases.
@@ -283,16 +285,18 @@ pub fn quote(s: &str) -> Cow<str> {
     }
 }
 
-/// Joins arguments into a single command line suitable for execution in Unix shell.
-///
-/// Each argument is quoted using [`quote`] to preserve its literal meaning when parsed by Unix
+/// Joins arguments into a single command line suitable for execution in Unix
 /// shell.
+///
+/// Each argument is quoted using [`quote`] to preserve its literal meaning when
+/// parsed by Unix shell.
 ///
 /// Note: This function is essentially an inverse of [`split`].
 ///
 /// # Examples
 ///
-/// Logging executed commands in format that can be easily copied and pasted into an actual shell:
+/// Logging executed commands in format that can be easily copied and pasted
+/// into an actual shell:
 ///
 /// ```rust,no_run
 /// fn execute(args: &[&str]) {
