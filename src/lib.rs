@@ -22,7 +22,7 @@ pub struct ParseError;
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "missing closing quote")
+        f.write_str("missing closing quote")
     }
 }
 
