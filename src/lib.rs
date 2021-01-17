@@ -13,8 +13,9 @@
 use std::borrow::Cow;
 use std::error;
 use std::fmt;
-use std::mem;
+use std::iter;
 use std::result;
+use std::str::Chars;
 
 /// An error returned when shell parsing fails.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -46,6 +47,136 @@ enum State {
     /// Inside a comment.
     Comment,
 }
+
+pub struct Split<'a> {
+    chars: Chars<'a>,
+    state: State,
+}
+
+pub fn split_iter(s: &str) -> Split<'_> {
+    Split {
+        chars: s.chars(),
+        state: State::Delimiter,
+    }
+}
+
+impl Iterator for Split<'_> {
+    type Item = Result<String, ParseError>;
+
+    fn next(&mut self) -> Option<Result<String, ParseError>> {
+        use State::*;
+
+        let mut word = String::new();
+
+        loop {
+            let c = self.chars.next();
+            self.state = match self.state {
+                Delimiter => match c {
+                    None => return None,
+                    Some('\'') => SingleQuoted,
+                    Some('\"') => DoubleQuoted,
+                    Some('\\') => Backslash,
+                    Some('\t') | Some(' ') | Some('\n') => Delimiter,
+                    Some('#') => Comment,
+                    Some(c) => {
+                        word.push(c);
+                        Unquoted
+                    }
+                },
+                Backslash => match c {
+                    None => {
+                        word.push('\\');
+                        self.state = Delimiter;
+                        return Some(Ok(word));
+                    }
+                    Some('\n') => Delimiter,
+                    Some(c) => {
+                        word.push(c);
+                        Unquoted
+                    }
+                },
+                Unquoted => match c {
+                    None => {
+                        self.state = Delimiter;
+                        return Some(Ok(word));
+                    }
+                    Some('\'') => SingleQuoted,
+                    Some('\"') => DoubleQuoted,
+                    Some('\\') => UnquotedBackslash,
+                    Some('\t') | Some(' ') | Some('\n') => {
+                        self.state = Delimiter;
+                        return Some(Ok(word));
+                    }
+                    Some(c) => {
+                        word.push(c);
+                        Unquoted
+                    }
+                },
+                UnquotedBackslash => match c {
+                    None => {
+                        word.push('\\');
+                        self.state = Delimiter;
+                        return Some(Ok(word));
+                    }
+                    Some('\n') => Unquoted,
+                    Some(c) => {
+                        word.push(c);
+                        Unquoted
+                    }
+                },
+                SingleQuoted => match c {
+                    None => {
+                        self.state = Delimiter;
+                        return Some(Err(ParseError));
+                    }
+                    Some('\'') => Unquoted,
+                    Some(c) => {
+                        word.push(c);
+                        SingleQuoted
+                    }
+                },
+                DoubleQuoted => match c {
+                    None => {
+                        self.state = Delimiter;
+                        return Some(Err(ParseError));
+                    }
+                    Some('\"') => Unquoted,
+                    Some('\\') => DoubleQuotedBackslash,
+                    Some(c) => {
+                        word.push(c);
+                        DoubleQuoted
+                    }
+                },
+                DoubleQuotedBackslash => match c {
+                    None => {
+                        self.state = Delimiter;
+                        return Some(Err(ParseError));
+                    }
+                    Some('\n') => DoubleQuoted,
+                    Some(c @ '$') | Some(c @ '`') | Some(c @ '"') | Some(c @ '\\') => {
+                        word.push(c);
+                        DoubleQuoted
+                    }
+                    Some(c) => {
+                        word.push('\\');
+                        word.push(c);
+                        DoubleQuoted
+                    }
+                },
+                Comment => match c {
+                    None => {
+                        self.state = Delimiter;
+                        return None;
+                    }
+                    Some('\n') => Delimiter,
+                    Some(_) => Comment,
+                },
+            }
+        }
+    }
+}
+
+impl iter::FusedIterator for Split<'_> {}
 
 /// Splits command line into separate arguments, in much the same way Unix shell would, but without
 /// many of expansion the shell would perform.
@@ -106,107 +237,10 @@ enum State {
 ///     .expect("failed to wait for subprocess");
 /// ```
 pub fn split(s: &str) -> result::Result<Vec<String>, ParseError> {
-    use State::*;
-
     let mut words = Vec::new();
-    let mut word = String::new();
-    let mut chars = s.chars();
-    let mut state = Delimiter;
-
-    loop {
-        let c = chars.next();
-        state = match state {
-            Delimiter => match c {
-                None => break,
-                Some('\'') => SingleQuoted,
-                Some('\"') => DoubleQuoted,
-                Some('\\') => Backslash,
-                Some('\t') | Some(' ') | Some('\n') => Delimiter,
-                Some('#') => Comment,
-                Some(c) => {
-                    word.push(c);
-                    Unquoted
-                }
-            },
-            Backslash => match c {
-                None => {
-                    word.push('\\');
-                    words.push(mem::replace(&mut word, String::new()));
-                    break;
-                }
-                Some('\n') => Delimiter,
-                Some(c) => {
-                    word.push(c);
-                    Unquoted
-                }
-            },
-            Unquoted => match c {
-                None => {
-                    words.push(mem::replace(&mut word, String::new()));
-                    break;
-                }
-                Some('\'') => SingleQuoted,
-                Some('\"') => DoubleQuoted,
-                Some('\\') => UnquotedBackslash,
-                Some('\t') | Some(' ') | Some('\n') => {
-                    words.push(mem::replace(&mut word, String::new()));
-                    Delimiter
-                }
-                Some(c) => {
-                    word.push(c);
-                    Unquoted
-                }
-            },
-            UnquotedBackslash => match c {
-                None => {
-                    word.push('\\');
-                    words.push(mem::replace(&mut word, String::new()));
-                    break;
-                }
-                Some('\n') => Unquoted,
-                Some(c) => {
-                    word.push(c);
-                    Unquoted
-                }
-            },
-            SingleQuoted => match c {
-                None => return Err(ParseError),
-                Some('\'') => Unquoted,
-                Some(c) => {
-                    word.push(c);
-                    SingleQuoted
-                }
-            },
-            DoubleQuoted => match c {
-                None => return Err(ParseError),
-                Some('\"') => Unquoted,
-                Some('\\') => DoubleQuotedBackslash,
-                Some(c) => {
-                    word.push(c);
-                    DoubleQuoted
-                }
-            },
-            DoubleQuotedBackslash => match c {
-                None => return Err(ParseError),
-                Some('\n') => DoubleQuoted,
-                Some(c @ '$') | Some(c @ '`') | Some(c @ '"') | Some(c @ '\\') => {
-                    word.push(c);
-                    DoubleQuoted
-                }
-                Some(c) => {
-                    word.push('\\');
-                    word.push(c);
-                    DoubleQuoted
-                }
-            },
-            Comment => match c {
-                None => break,
-                Some('\n') => Delimiter,
-                Some(_) => Comment,
-            },
-        }
+    for word in split_iter(s) {
+        words.push(word?);
     }
-
     Ok(words)
 }
 
