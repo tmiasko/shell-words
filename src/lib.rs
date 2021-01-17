@@ -14,7 +14,6 @@ use std::borrow::Cow;
 use std::error;
 use std::fmt;
 use std::mem;
-use std::result;
 
 /// An error returned when shell parsing fails.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -105,7 +104,7 @@ enum State {
 ///     .wait()
 ///     .expect("failed to wait for subprocess");
 /// ```
-pub fn split(s: &str) -> result::Result<Vec<String>, ParseError> {
+pub fn split(s: &str) -> Result<Vec<String>, ParseError> {
     use State::*;
 
     let mut words = Vec::new();
