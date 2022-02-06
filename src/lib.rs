@@ -8,13 +8,28 @@
 //!
 //! [posix-shell]: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
 
+#![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "std")]
+extern crate core;
+
+use core::fmt;
+use core::mem;
+
+#[cfg(not(feature = "std"))]
+#[macro_use]
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
+#[cfg(not(feature = "std"))]
+use alloc::borrow::Cow;
+#[cfg(feature = "std")]
 use std::borrow::Cow;
-use std::error;
-use std::fmt;
-use std::mem;
-use std::result;
 
 /// An error returned when shell parsing fails.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,7 +41,8 @@ impl fmt::Display for ParseError {
     }
 }
 
-impl error::Error for ParseError {}
+#[cfg(feature = "std")]
+impl std::error::Error for ParseError {}
 
 enum State {
     /// Within a delimiter.
@@ -105,7 +121,7 @@ enum State {
 ///     .wait()
 ///     .expect("failed to wait for subprocess");
 /// ```
-pub fn split(s: &str) -> result::Result<Vec<String>, ParseError> {
+pub fn split(s: &str) -> Result<Vec<String>, ParseError> {
     use State::*;
 
     let mut words = Vec::new();

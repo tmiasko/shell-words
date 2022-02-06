@@ -13,3 +13,7 @@ keywords = [
   "unix",
   "words",
 ]
+
+[features]
+default = ["std"]
+std = []
