@@ -139,7 +139,7 @@ pub fn split(s: &str) -> Result<Vec<String>, ParseError> {
                 Some('\'') => SingleQuoted,
                 Some('\"') => DoubleQuoted,
                 Some('\\') => Backslash,
-                Some('\t') | Some(' ') | Some('\n') => Delimiter,
+                Some('\t' | ' ' | '\n') => Delimiter,
                 Some('#') => Comment,
                 Some(c) => {
                     word.push(c);
@@ -166,7 +166,7 @@ pub fn split(s: &str) -> Result<Vec<String>, ParseError> {
                 Some('\'') => SingleQuoted,
                 Some('\"') => DoubleQuoted,
                 Some('\\') => UnquotedBackslash,
-                Some('\t') | Some(' ') | Some('\n') => {
+                Some('\t' | ' ' | '\n') => {
                     words.push(mem::replace(&mut word, String::new()));
                     Delimiter
                 }
@@ -207,7 +207,7 @@ pub fn split(s: &str) -> Result<Vec<String>, ParseError> {
             DoubleQuotedBackslash => match c {
                 None => return Err(ParseError),
                 Some('\n') => DoubleQuoted,
-                Some(c @ '$') | Some(c @ '`') | Some(c @ '"') | Some(c @ '\\') => {
+                Some(c @ '$' | c @ '`' | c @ '"' | c @ '\\') => {
                     word.push(c);
                     DoubleQuoted
                 }
