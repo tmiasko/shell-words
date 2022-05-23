@@ -378,6 +378,11 @@ mod tests {
     }
 
     #[test]
+    fn split_redirect() {
+        split_ok(&[("foo -b|bar s", &["foo", "-b", "|", "bar", "s"])]);
+    }
+
+    #[test]
     fn split_initial_whitespace_is_removed() {
         split_ok(&[
             ("     a", &["a"]),
