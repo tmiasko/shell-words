@@ -172,7 +172,7 @@ pub fn split(s: &str) -> Result<Vec<String>, ParseError> {
                 }
                 Some(c) => {
                     match c {
-                        '|' | '>' => {
+                        '|' | '>' | ';' => {
                             words.push(mem::replace(&mut word, String::new()));
                             words.push(String::from(c));
                         }
