@@ -8,7 +8,6 @@
 //!
 //! [posix-shell]: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
 
-#![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 
 #[cfg(feature = "std")]
@@ -84,8 +83,8 @@ enum State {
 ///
 /// # Compatibility with other implementations
 ///
-/// It should be fully compatible with g_shell_parse_argv from GLib, except that
-/// in GLib it is an error not to have any words after tokenization.
+/// It should be fully compatible with `g_shell_parse_argv` from GLib, except
+/// that in GLib it is an error not to have any words after tokenization.
 ///
 /// It is also very close to shlex.split available in Python standard library,
 /// when used in POSIX mode with support for comments. Though, shlex
@@ -279,6 +278,7 @@ fn escape_style(s: &str) -> EscapeStyle {
 ///
 /// It tries to avoid introducing any unnecessary quotes or escape characters,
 /// but specifics regarding quoting style are left unspecified.
+#[must_use]
 pub fn quote(s: &str) -> Cow<str> {
     // We are going somewhat out of the way to provide
     // minimal amount of quoting in typical cases.
