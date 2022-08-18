@@ -8,7 +8,6 @@
 //!
 //! [posix-shell]: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
 
-#![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 
 #[cfg(feature = "std")]
@@ -84,8 +83,8 @@ enum State {
 ///
 /// # Compatibility with other implementations
 ///
-/// It should be fully compatible with g_shell_parse_argv from GLib, except that
-/// in GLib it is an error not to have any words after tokenization.
+/// It should be fully compatible with `g_shell_parse_argv` from GLib, except
+/// that in GLib it is an error not to have any words after tokenization.
 ///
 /// It is also very close to shlex.split available in Python standard library,
 /// when used in POSIX mode with support for comments. Though, shlex
@@ -132,96 +131,99 @@ pub fn split(s: &str) -> Result<Vec<String>, ParseError> {
     let mut state = Delimiter;
 
     loop {
-        let c = chars.next();
-        state = match state {
-            Delimiter => match c {
-                None => break,
-                Some('\'') => SingleQuoted,
-                Some('\"') => DoubleQuoted,
-                Some('\\') => Backslash,
-                Some('\t') | Some(' ') | Some('\n') => Delimiter,
-                Some('#') => Comment,
-                Some(c) => {
-                    word.push(c);
-                    Unquoted
-                }
-            },
-            Backslash => match c {
-                None => {
+        state = if let Some(c) = chars.next() {
+            // Process new character
+            match state {
+                Delimiter => match c {
+                    '\'' => SingleQuoted,
+                    '\"' => DoubleQuoted,
+                    '\\' => Backslash,
+                    '\t' | ' ' | '\n' => Delimiter,
+                    '#' => Comment,
+                    c => {
+                        word.push(c);
+                        Unquoted
+                    }
+                },
+                Backslash => match c {
+                    '\n' => Delimiter,
+                    c => {
+                        word.push(c);
+                        Unquoted
+                    }
+                },
+                Unquoted => match c {
+                    '\'' => SingleQuoted,
+                    '\"' => DoubleQuoted,
+                    '\\' => UnquotedBackslash,
+                    '\t' | ' ' | '\n' => {
+                        words.push(mem::take(&mut word));
+                        Delimiter
+                    }
+                    c => {
+                        word.push(c);
+                        Unquoted
+                    }
+                },
+                UnquotedBackslash => match c {
+                    '\n' => Unquoted,
+                    c => {
+                        word.push(c);
+                        Unquoted
+                    }
+                },
+                SingleQuoted => match c {
+                    '\'' => Unquoted,
+                    c => {
+                        word.push(c);
+                        SingleQuoted
+                    }
+                },
+                DoubleQuoted => match c {
+                    '\"' => Unquoted,
+                    '\\' => DoubleQuotedBackslash,
+                    c => {
+                        word.push(c);
+                        DoubleQuoted
+                    }
+                },
+                DoubleQuotedBackslash => match c {
+                    '\n' => DoubleQuoted,
+                    '$' | '`' | '"' | '\\' => {
+                        word.push(c);
+                        DoubleQuoted
+                    }
+                    c => {
+                        word.push('\\');
+                        word.push(c);
+                        DoubleQuoted
+                    }
+                },
+                Comment => match c {
+                    '\n' => Delimiter,
+                    _ => Comment,
+                },
+            }
+        } else {
+            // Process end of input
+            match state {
+                Delimiter | Comment => break,
+                Backslash => {
                     word.push('\\');
-                    words.push(mem::replace(&mut word, String::new()));
+                    words.push(mem::take(&mut word));
                     break;
                 }
-                Some('\n') => Delimiter,
-                Some(c) => {
-                    word.push(c);
-                    Unquoted
-                }
-            },
-            Unquoted => match c {
-                None => {
-                    words.push(mem::replace(&mut word, String::new()));
+                Unquoted => {
+                    words.push(mem::take(&mut word));
                     break;
                 }
-                Some('\'') => SingleQuoted,
-                Some('\"') => DoubleQuoted,
-                Some('\\') => UnquotedBackslash,
-                Some('\t') | Some(' ') | Some('\n') => {
-                    words.push(mem::replace(&mut word, String::new()));
-                    Delimiter
-                }
-                Some(c) => {
-                    word.push(c);
-                    Unquoted
-                }
-            },
-            UnquotedBackslash => match c {
-                None => {
+                UnquotedBackslash => {
                     word.push('\\');
-                    words.push(mem::replace(&mut word, String::new()));
+                    words.push(mem::take(&mut word));
                     break;
                 }
-                Some('\n') => Unquoted,
-                Some(c) => {
-                    word.push(c);
-                    Unquoted
-                }
-            },
-            SingleQuoted => match c {
-                None => return Err(ParseError),
-                Some('\'') => Unquoted,
-                Some(c) => {
-                    word.push(c);
-                    SingleQuoted
-                }
-            },
-            DoubleQuoted => match c {
-                None => return Err(ParseError),
-                Some('\"') => Unquoted,
-                Some('\\') => DoubleQuotedBackslash,
-                Some(c) => {
-                    word.push(c);
-                    DoubleQuoted
-                }
-            },
-            DoubleQuotedBackslash => match c {
-                None => return Err(ParseError),
-                Some('\n') => DoubleQuoted,
-                Some(c @ '$') | Some(c @ '`') | Some(c @ '"') | Some(c @ '\\') => {
-                    word.push(c);
-                    DoubleQuoted
-                }
-                Some(c) => {
-                    word.push('\\');
-                    word.push(c);
-                    DoubleQuoted
-                }
-            },
-            Comment => match c {
-                None => break,
-                Some('\n') => Delimiter,
-                Some(_) => Comment,
-            },
+                SingleQuoted | DoubleQuoted | DoubleQuotedBackslash => return Err(ParseError),
+            }
         }
     }
 
@@ -244,33 +246,24 @@ fn escape_style(s: &str) -> EscapeStyle {
     }
 
     let mut special = false;
-    let mut newline = false;
-    let mut single_quote = false;
 
     for c in s.chars() {
         match c {
-            '\n' => {
-                newline = true;
-                special = true;
-            }
             '\'' => {
-                single_quote = true;
-                special = true;
+                return EscapeStyle::Mixed;
             }
-            '|' | '&' | ';' | '<' | '>' | '(' | ')' | '$' | '`' | '\\' | '"' | ' ' | '\t' | '*'
-            | '?' | '[' | '#' | '˜' | '=' | '%' => {
+            '\n' | '|' | '&' | ';' | '<' | '>' | '(' | ')' | '$' | '`' | '\\' | '"' | ' '
+            | '\t' | '*' | '?' | '[' | '#' | '˜' | '=' | '%' => {
                 special = true;
             }
             _ => continue,
         }
     }
 
-    if !special {
-        EscapeStyle::None
-    } else if newline && !single_quote {
+    if special {
         EscapeStyle::SingleQuoted
     } else {
-        EscapeStyle::Mixed
+        EscapeStyle::None
     }
 }
 
@@ -279,25 +272,14 @@ fn escape_style(s: &str) -> EscapeStyle {
 ///
 /// It tries to avoid introducing any unnecessary quotes or escape characters,
 /// but specifics regarding quoting style are left unspecified.
+#[must_use]
 pub fn quote(s: &str) -> Cow<str> {
     // We are going somewhat out of the way to provide
     // minimal amount of quoting in typical cases.
     match escape_style(s) {
         EscapeStyle::None => s.into(),
         EscapeStyle::SingleQuoted => format!("'{}'", s).into(),
-        EscapeStyle::Mixed => {
-            let mut quoted = String::new();
-            quoted.push('\'');
-            for c in s.chars() {
-                if c == '\'' {
-                    quoted.push_str("'\\''");
-                } else {
-                    quoted.push(c);
-                }
-            }
-            quoted.push('\'');
-            quoted.into()
-        }
+        EscapeStyle::Mixed => format!("'{}'", s.replace('\'', "'\\''")).into(),
     }
 }
 
@@ -336,12 +318,10 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<str>,
 {
-    let mut line = words.into_iter().fold(String::new(), |mut line, word| {
-        let quoted = quote(word.as_ref());
-        line.push_str(quoted.as_ref());
-        line.push(' ');
-        line
-    });
+    let mut line: String = words
+        .into_iter()
+        .map(|word| format!("{} ", quote(word.as_ref())))
+        .collect();
     line.pop();
     line
 }
